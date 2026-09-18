@@ -3,6 +3,9 @@
 /android/
 *.translation
 
+# Web export output
+/build/
+
 # Leftover plugin copies
 GodotAI-*/
 
