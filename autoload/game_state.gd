@@ -12,6 +12,8 @@ static var highest_unlocked: int = 1
 static var has_started: bool = false
 static var level_stars: Dictionary = {}
 static var pending_level_id: int = 1
+static var flash_from_title: bool = false
+static var pending_intro: bool = false
 
 
 func _ready() -> void:
@@ -23,9 +25,10 @@ static func can_continue() -> bool:
 	return has_started
 
 
-static func start_level(level_id: int) -> void:
+static func start_level(level_id: int, play_intro: bool = false) -> void:
 	pending_level_id = clampi(level_id, 1, MAX_LEVEL)
 	last_level_id = pending_level_id
+	pending_intro = play_intro and pending_level_id == 1
 	has_started = true
 	save_progress()
 	var tree := Engine.get_main_loop() as SceneTree

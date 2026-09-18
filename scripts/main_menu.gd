@@ -4,11 +4,17 @@ const PLAY_TEXTURE := preload("res://assets/ui/play_button.png")
 const TEMPLATE_TEXTURE := preload("res://assets/ui/button_template.png")
 
 @onready var video: VideoStreamPlayer = %Video
+@onready var transition_video: VideoStreamPlayer = %TransitionVideo
 @onready var play_button: TextureButton = %PlayButton
 @onready var play_label: Label = %PlayLabel
 @onready var continue_button: TextureButton = %ContinueButton
 @onready var continue_label: Label = %ContinueLabel
 @onready var settings_button: TextureButton = %SettingsButton
+@onready var logo: TextureRect = %Logo
+@onready var buttons: VBoxContainer = %Buttons
+@onready var white_flash: ColorRect = %WhiteFlash
+
+var _busy: bool = false
 
 
 func _ready() -> void:
@@ -75,10 +81,60 @@ func _fit_video() -> void:
 	var fitted := VIDEO_SIZE * cover
 	video.size = fitted
 	video.position = (vs - fitted) * 0.5
+	transition_video.size = fitted
+	transition_video.position = (vs - fitted) * 0.5
 
 
 func _on_play_pressed() -> void:
+	if _busy:
+		return
+	_busy = true
+	await _play_title_to_level()
+	HGSave.flash_from_title = true
 	get_tree().change_scene_to_file("res://scenes/level_select.tscn")
+
+
+func _play_title_to_level() -> void:
+	play_button.disabled = true
+	continue_button.disabled = true
+	settings_button.disabled = true
+	var hide_ui := create_tween()
+	hide_ui.set_parallel(true)
+	hide_ui.tween_property(logo, "modulate:a", 0.0, 0.28)
+	hide_ui.tween_property(buttons, "modulate:a", 0.0, 0.28)
+	var path := "res://assets/ui/title_to_level.ogv"
+	var length := 6.04
+	if ResourceLoader.exists(path):
+		_fit_video()
+		transition_video.volume_db = -80.0
+		transition_video.volume = 0.0
+		transition_video.loop = false
+		transition_video.expand = true
+		transition_video.stream = load(path)
+		transition_video.visible = true
+		transition_video.play()
+		video.stop()
+		video.visible = false
+		for _i in 20:
+			await get_tree().process_frame
+			if transition_video.get_stream_length() > 0.1:
+				length = transition_video.get_stream_length()
+				break
+		await get_tree().create_timer(maxf(0.2, length - 0.9)).timeout
+	await _engulf_screen()
+	if is_instance_valid(transition_video) and transition_video.is_playing():
+		var leftover := length - transition_video.get_stream_position()
+		if leftover > 0.02:
+			await get_tree().create_timer(leftover).timeout
+	await get_tree().create_timer(0.08).timeout
+
+
+func _engulf_screen() -> void:
+	white_flash.visible = true
+	white_flash.mouse_filter = Control.MOUSE_FILTER_STOP
+	var tw := create_tween()
+	tw.tween_property(white_flash, "modulate:a", 1.0, 0.75).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tw.finished
 
 
 func _on_continue_pressed() -> void:

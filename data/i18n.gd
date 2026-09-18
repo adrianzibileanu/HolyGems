@@ -35,6 +35,7 @@ const STRINGS := {
 		"verse_genesis_1_1": "In the beginning God made the heaven and the earth.",
 		"ref_genesis_1_1": "Genesis 1:1",
 		"book_page_title": "LEVELS 1–5",
+		"skip": "SKIP",
 	},
 	RO: {
 		"play": "JOACĂ",
@@ -66,6 +67,7 @@ const STRINGS := {
 		"verse_genesis_1_1": "La început a făcut Dumnezeu cerul și pământul.",
 		"ref_genesis_1_1": "Facerea 1:1",
 		"book_page_title": "NIVELURI 1–5",
+		"skip": "OMITE",
 	},
 }
 

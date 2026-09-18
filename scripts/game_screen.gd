@@ -13,6 +13,7 @@ var moves_left: int = 0
 var goals: Dictionary = {}
 var board: GemBoard
 var ended: bool = false
+var _intro_done: bool = false
 
 @onready var title_label: Label = %TitleLabel
 @onready var verse_label: Label = %VerseLabel
@@ -26,6 +27,8 @@ var ended: bool = false
 
 
 func _ready() -> void:
+	if HGSave.pending_intro:
+		%IntroOverlay.visible = true
 	level = LevelCatalog.get_level(HGSave.pending_level_id)
 	if level.is_empty():
 		level = LevelCatalog.get_level(1)
@@ -48,9 +51,16 @@ func _ready() -> void:
 	%ResumeButton.pressed.connect(func() -> void: pause_overlay.visible = false)
 	%PauseSettingsButton.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/settings.tscn"))
 	%PauseMenuButton.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	%RetryButton.pressed.connect(func() -> void: HGSave.start_level(int(level.id)))
+	%RetryButton.pressed.connect(func() -> void: HGSave.start_level(int(level.id), false))
 	%LevelsButton.pressed.connect(func() -> void: get_tree().change_scene_to_file("res://scenes/level_select.tscn"))
+	%SkipIntroButton.pressed.connect(_skip_intro)
+	%SkipIntroLabel.text = HGLoc.t("skip")
+	await _maybe_play_intro()
+	if not is_inside_tree():
+		return
 	await get_tree().process_frame
+	if not is_inside_tree():
+		return
 	board = GemBoard.new()
 	board_slot.add_child(board)
 	board.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -58,6 +68,89 @@ func _ready() -> void:
 	board.move_spent.connect(_on_move_spent)
 	board.settled.connect(_on_settled)
 	board.setup(level)
+
+
+func _maybe_play_intro() -> void:
+	var overlay := %IntroOverlay
+	var player := %IntroVideo
+	if not HGSave.pending_intro:
+		overlay.visible = false
+		_intro_done = true
+		return
+	HGSave.pending_intro = false
+	var path := "res://assets/ui/lvl1.ogv"
+	if not ResourceLoader.exists(path):
+		overlay.visible = false
+		_intro_done = true
+		return
+	overlay.visible = true
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	player.volume_db = -80.0
+	player.volume = 0.0
+	player.loop = false
+	player.expand = true
+	player.stream = load(path)
+	_fit_intro_video()
+	if not resized.is_connected(_fit_intro_video):
+		resized.connect(_fit_intro_video)
+	player.visible = true
+	player.play()
+	var length := 7.04
+	var started := false
+	for _i in 30:
+		if _intro_done or not is_inside_tree():
+			_finish_intro()
+			return
+		await get_tree().process_frame
+		if not is_instance_valid(player):
+			return
+		if player.get_stream_length() > 0.1:
+			length = player.get_stream_length()
+		if player.is_playing() or player.get_stream_position() > 0.01:
+			started = true
+			break
+	while not _intro_done and is_inside_tree():
+		await get_tree().process_frame
+		if not is_inside_tree() or not is_instance_valid(player):
+			return
+		if player.get_stream_length() > 0.1:
+			length = player.get_stream_length()
+		var pos: float = player.get_stream_position()
+		if pos >= length - 0.04:
+			break
+		if started and not player.is_playing() and not player.paused and pos > 0.2:
+			break
+	if is_inside_tree():
+		_finish_intro()
+
+
+func _fit_intro_video() -> void:
+	var player := %IntroVideo
+	var vs := size
+	if vs.x <= 1.0:
+		vs = get_viewport_rect().size
+	var native := Vector2(720, 1280)
+	var cover := maxf(vs.x / native.x, vs.y / native.y)
+	var fitted := native * cover
+	player.size = fitted
+	player.position = (vs - fitted) * 0.5
+
+
+func _skip_intro() -> void:
+	_finish_intro()
+
+
+func _finish_intro() -> void:
+	_intro_done = true
+	if not is_inside_tree():
+		return
+	var overlay := %IntroOverlay
+	var player := %IntroVideo
+	if is_instance_valid(player) and player.is_playing():
+		player.stop()
+	overlay.visible = false
+	if is_instance_valid(player):
+		player.visible = false
 
 
 func _apply_locale() -> void:

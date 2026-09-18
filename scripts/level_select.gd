@@ -18,6 +18,21 @@ func _ready() -> void:
 	_place_buttons()
 	resized.connect(_place_buttons)
 	get_viewport().size_changed.connect(_place_buttons)
+	await _reveal_from_title()
+
+
+func _reveal_from_title() -> void:
+	var flash := %WhiteFlash
+	if not HGSave.flash_from_title:
+		flash.visible = false
+		return
+	HGSave.flash_from_title = false
+	flash.visible = true
+	flash.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_property(flash, "modulate:a", 0.0, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await tw.finished
+	flash.visible = false
 
 
 func _place_page_label(vs: Vector2) -> void:
@@ -70,7 +85,7 @@ func _on_level_pressed(level_id: int) -> void:
 	if not bool(level.get("playable", false)):
 		_show_toast(HGLoc.t("coming_soon"))
 		return
-	HGSave.start_level(level_id)
+	HGSave.start_level(level_id, true)
 
 
 func _on_back() -> void:
